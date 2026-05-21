@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JobGuard — Fake Job Detection System</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="logo">
+        <span class="logo-icon">🛡</span>
+        <span class="logo-text">Job<span class="accent">Guard</span></span>
+      </div>
+      <p class="tagline">Detect fake job & internship postings instantly</p>
+      <nav class="header-nav">
+        <button class="nav-how-btn" onclick="openHowPanel()" title="How does JobGuard work?">
+          <span class="nav-how-icon">ℹ</span>
+          <span class="nav-how-text">Guide</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- LEFT: INPUT PANEL -->
+    <section class="panel input-panel">
+      <h2 class="panel-title">Paste Job Details</h2>
+      <p class="panel-sub">Fill in what you know — even partial info helps.</p>
+
+      <!-- SAMPLE PRESETS -->
+      <div class="presets-row">
+        <span class="presets-label">Try a demo:</span>
+        <button class="preset-btn preset-fake"      onclick="loadPreset('fake')">🚨 Fake Job</button>
+        <button class="preset-btn preset-suspicious" onclick="loadPreset('suspicious')">⚠️ Suspicious</button>
+        <button class="preset-btn preset-legit"     onclick="loadPreset('legit')">✅ Legit Post</button>
+      </div>
+
+      <div class="form-group">
+        <label for="jobTitle">Job / Internship Title</label>
+        <input type="text" id="jobTitle" placeholder="e.g. Marketing Intern, Data Entry Operator" />
+      </div>
+
+      <div class="form-group">
+        <label for="companyName">Company Name</label>
+        <input type="text" id="companyName" placeholder="e.g. TechCorp India Pvt. Ltd." />
+      </div>
+
+      <div class="form-group">
+        <label for="contactEmail">Contact / HR Email</label>
+        <input type="email" id="contactEmail" placeholder="e.g. hr@company.com" />
+      </div>
+
+      <div class="form-row">
+        <div class="form-group half">
+          <label for="salary">Offered Salary / Stipend</label>
+          <input type="text" id="salary" placeholder="e.g. ₹50,000/month or 5 LPA" />
+        </div>
+        <div class="form-group half">
+          <label for="jobUrl">Job Posting URL</label>
+          <input type="text" id="jobUrl" placeholder="https://..." />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="jobDesc">Full Job Description</label>
+        <textarea id="jobDesc" rows="7" placeholder="Paste the complete job description here. Include requirements, responsibilities, perks, how to apply, etc."></textarea>
+        <span class="char-count" id="charCount">0 characters</span>
+      </div>
+
+      <button class="btn-analyze" id="analyzeBtn" onclick="analyzeJob()">
+        <span class="btn-icon">🔍</span> Analyze Now
+      </button>
+
+      <button class="btn-clear" onclick="clearAll()">Clear</button>
+    </section>
+
+    <!-- RIGHT: RESULTS PANEL -->
+    <section class="panel results-panel" id="resultsPanel">
+
+      <!-- IDLE STATE -->
+      <div class="idle-state" id="idleState">
+        <div class="idle-icon">🔎</div>
+        <h3>Your analysis will appear here</h3>
+        <p>Fill in the job details on the left and click <strong>Analyze Now</strong>.</p>
+      </div>
+
+      <!-- RESULTS STATE (hidden initially) -->
+      <div class="results-content" id="resultsContent" style="display:none">
+
+        <!-- Score Ring -->
+        <div class="score-section">
+          <div class="score-ring-wrapper">
+            <svg class="score-ring" viewBox="0 0 120 120">
+              <circle class="ring-bg" cx="60" cy="60" r="50"/>
+              <circle class="ring-fill" id="ringFill" cx="60" cy="60" r="50"
+                stroke-dasharray="314"
+                stroke-dashoffset="314"
+                transform="rotate(-90 60 60)"/>
+            </svg>
+            <div class="score-center">
+              <span class="score-number" id="scoreNumber">0</span>
+              <span class="score-label">Risk Score</span>
+            </div>
+          </div>
+          <div class="score-meta">
+            <div class="verdict-badge" id="verdictBadge">—</div>
+            <p class="verdict-desc" id="verdictDesc">Run an analysis to get results.</p>
+          </div>
+        </div>
+
+        <!-- Red Flags -->
+        <div class="flags-section" id="flagsSection">
+          <h3 class="section-heading">⚑ Red Flags Detected</h3>
+          <ul class="flags-list" id="flagsList"></ul>
+          <p class="no-flags" id="noFlags" style="display:none">No significant red flags found. Looks relatively safe!</p>
+        </div>
+
+        <!-- Positive Signals -->
+        <div class="signals-section" id="signalsSection">
+          <h3 class="section-heading">✓ Positive Signals</h3>
+          <ul class="signals-list" id="signalsList"></ul>
+        </div>
+
+        <!-- Breakdown -->
+        <div class="breakdown-section">
+          <h3 class="section-heading">📊 Category Breakdown</h3>
+          <div class="breakdown-grid" id="breakdownGrid"></div>
+        </div>
+
+        <!-- Safety Tips -->
+        <div class="tips-section">
+          <h3 class="section-heading">💡 Safety Tips</h3>
+          <ul class="tips-list" id="tipsList"></ul>
+        </div>
+
+        <!-- Actions -->
+        <div class="actions-row">
+          <button class="btn-report" onclick="downloadReport()">⬇ Download Report</button>
+          <button class="btn-share"  onclick="copyReport()">📋 Copy Summary</button>
+          <button class="btn-permalink" id="permalinkBtn" onclick="openDrawer()" style="display:none">🔗 Full Report</button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- SCAN HISTORY -->
+  <section class="history-section" id="historySection" style="display:none">
+    <div class="history-inner">
+      <div class="history-header">
+        <h3 class="history-title">🕑 Recent Scans</h3>
+        <button class="btn-clear-history" onclick="clearHistory()">Clear All</button>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <p>JobGuard — College Project · Built with HTML, CSS3 & JavaScript · For educational purposes only</p>
+  </footer>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <!-- RESULT SIDE DRAWER -->
+  <div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
+  <aside class="result-drawer" id="resultDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="drawer-heading">
+        <span class="drawer-icon">🛡</span>
+        <div>
+          <h2 class="drawer-title" id="drawerTitle">Analysis Report</h2>
+          <p class="drawer-sub" id="drawerSub"></p>
+        </div>
+      </div>
+      <div class="drawer-top-actions">
+        <a class="drawer-fullpage-btn" id="drawerFullLink" href="#" target="_blank">↗ Full Page</a>
+        <button class="drawer-close" onclick="closeDrawer()" aria-label="Close">✕</button>
+      </div>
+    </div>
+
+    <div class="drawer-body">
+      <div class="drawer-score-row">
+        <div class="score-ring-wrapper drawer-ring">
+          <svg class="score-ring" viewBox="0 0 120 120">
+            <circle class="ring-bg" cx="60" cy="60" r="50"/>
+            <circle class="ring-fill" id="drawerRingFill" cx="60" cy="60" r="50"
+              stroke-dasharray="314" stroke-dashoffset="314"
+              transform="rotate(-90 60 60)"/>
+          </svg>
+          <div class="score-center">
+            <span class="score-number" id="drawerScoreNum">0</span>
+            <span class="score-label">Risk</span>
+          </div>
+        </div>
+        <div class="drawer-verdict-block">
+          <div class="verdict-badge" id="drawerVerdict">—</div>
+          <p class="verdict-desc" id="drawerVerdictDesc"></p>
+          <div id="drawerMlPill" style="margin-top:8px"></div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h3 class="drawer-section-title">⚑ Red Flags</h3>
+        <ul class="flags-list" id="drawerFlagsList"></ul>
+        <p class="no-flags" id="drawerNoFlags" style="display:none">No significant red flags found.</p>
+      </div>
+
+      <div class="drawer-section" id="drawerSignalsSection">
+        <h3 class="drawer-section-title">✓ Positive Signals</h3>
+        <ul class="signals-list" id="drawerSignalsList"></ul>
+      </div>
+
+      <div class="drawer-section">
+        <h3 class="drawer-section-title">📊 Category Breakdown</h3>
+        <div id="drawerBreakdown"></div>
+      </div>
+
+      <div class="drawer-section">
+        <h3 class="drawer-section-title">💡 Safety Tips</h3>
+        <ul class="tips-list" id="drawerTips"></ul>
+      </div>
+
+      <div class="actions-row" style="margin-top:8px">
+        <button class="btn-report" onclick="downloadReport()">⬇ Download</button>
+        <button class="btn-share"  onclick="copyReport()">📋 Copy</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- HOW IT WORKS SIDE PANEL -->
+  <div class="drawer-backdrop" id="howBackdrop" onclick="closeHowPanel()"></div>
+  <aside class="result-drawer how-drawer" id="howDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div class="drawer-heading">
+        <span class="drawer-icon">ℹ</span>
+        <div>
+          <h2 class="drawer-title">How JobGuard Works</h2>
+          <p class="drawer-sub">Detection methodology explained</p>
+        </div>
+      </div>
+      <button class="drawer-close" onclick="closeHowPanel()">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div class="how-panel-grid">
+        <div class="how-panel-card"><div class="how-panel-icon">🤖</div><h4>ML Classification</h4><p>A Logistic Regression model trained on labelled job postings predicts fake or real, outputting a confidence score.</p></div>
+        <div class="how-panel-card"><div class="how-panel-icon">🔍</div><h4>Pattern Matching</h4><p>Over 60 regex patterns scan for fee requests, copy-paste work, urgency tactics, ad-posting, and MLM language.</p></div>
+        <div class="how-panel-card"><div class="how-panel-icon">📧</div><h4>Email Domain Check</h4><p>Personal domains like Gmail or Yahoo are flagged. Legitimate companies use official company-owned emails.</p></div>
+        <div class="how-panel-card"><div class="how-panel-icon">💰</div><h4>Salary Sanity Check</h4><p>Salaries too high per day or suspiciously below minimum wage are flagged using numeric parsing.</p></div>
+        <div class="how-panel-card"><div class="how-panel-icon">🔗</div><h4>URL Validation</h4><p>Shortened links (bit.ly, tinyurl) and suspicious TLDs (.xyz, .tk) are flagged as high risk.</p></div>
+        <div class="how-panel-card"><div class="how-panel-icon">📊</div><h4>Weighted Risk Score</h4><p>Each flag carries a weight. Final = 60% rules + 40% ML probability, capped at 100.</p></div>
+        <div class="how-panel-card"><div class="how-panel-icon">✅</div><h4>Positive Signals</h4><p>CIN numbers, PF/ESIC, offer letters, Glassdoor/LinkedIn links and background checks reduce the score.</p></div>
+        <div class="how-panel-card"><div class="how-panel-icon">🛡</div><h4>Safety Tips</h4><p>Context-aware safety tips are shown based on which red flags triggered in your analysis.</p></div>
+      </div>
+      <div class="how-legend">
+        <h4 class="how-legend-title">Risk Score Legend</h4>
+        <div class="how-legend-row"><span class="legend-dot" style="background:#22c55e"></span><span class="legend-range">0 – 25</span><span class="legend-label safe">✅ Likely Safe</span><span class="legend-desc">No significant red flags.</span></div>
+        <div class="how-legend-row"><span class="legend-dot" style="background:#f59e0b"></span><span class="legend-range">26 – 55</span><span class="legend-label warn">⚠️ Suspicious</span><span class="legend-desc">Verify independently.</span></div>
+        <div class="how-legend-row"><span class="legend-dot" style="background:#ef4444"></span><span class="legend-range">56 – 100</span><span class="legend-label danger">🚨 High Risk</span><span class="legend-desc">Likely a scam.</span></div>
+      </div>
+      <p class="how-disclaimer">⚠️ JobGuard is a heuristic + ML tool for educational purposes. Always independently verify before making career decisions.</p>
+    </div>
+  </aside>
+
+  <script>
+    function openHowPanel() {
+      document.getElementById('howDrawer').classList.add('open');
+      document.getElementById('howDrawer').setAttribute('aria-hidden', 'false');
+      document.getElementById('howBackdrop').classList.add('show');
+      document.body.classList.add('drawer-open');
+    }
+    function closeHowPanel() {
+      document.getElementById('howDrawer').classList.remove('open');
+      document.getElementById('howDrawer').setAttribute('aria-hidden', 'true');
+      document.getElementById('howBackdrop').classList.remove('show');
+      document.body.classList.remove('drawer-open');
+    }
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeHowPanel();
+    });
+  </script>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}JobGuard — Fake Job Detection System{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+  <header class="header">
+    <div class="header-inner">
+      <a href="{{ url_for('index') }}" class="logo" style="text-decoration:none">
+        <span class="logo-icon">🛡</span>
+        <span class="logo-text">Job<span class="accent">Guard</span></span>
+      </a>
+      <p class="tagline">Detect fake job &amp; internship postings instantly</p>
+      <nav class="header-nav">
+        <a href="{{ url_for('index') }}" class="nav-link {% if request.endpoint == 'index' %}active{% endif %}">Analyze</a>
+        <a href="{{ url_for('admin') }}" class="nav-link {% if request.endpoint == 'admin' %}active{% endif %}">Admin</a>
+        <button class="nav-how-btn" onclick="openHowPanel()" title="How does JobGuard work?">
+          <span class="nav-how-icon">ℹ</span>
+          <span class="nav-how-text">Guide</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  {% block content %}{% endblock %}
+
+  <footer class="footer">
+    <p>JobGuard — College Project · Flask + Scikit-learn + HTML/CSS/JS · For educational purposes only</p>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ── HOW IT WORKS SIDE PANEL ── -->
+  <div class="drawer-backdrop" id="howBackdrop" onclick="closeHowPanel()"></div>
+  <aside class="result-drawer how-drawer" id="howDrawer" aria-hidden="true">
+
+    <div class="drawer-header">
+      <div class="drawer-heading">
+        <span class="drawer-icon">ℹ</span>
+        <div>
+          <h2 class="drawer-title">How JobGuard Works</h2>
+          <p class="drawer-sub">Detection methodology explained</p>
+        </div>
+      </div>
+      <button class="drawer-close" onclick="closeHowPanel()" aria-label="Close">✕</button>
+    </div>
+
+    <div class="drawer-body">
+
+      <div class="how-panel-grid">
+        <div class="how-panel-card">
+          <div class="how-panel-icon">🤖</div>
+          <h4>ML Classification</h4>
+          <p>A Logistic Regression model trained on labelled job postings predicts whether a posting is fake or real, outputting a confidence score alongside every analysis.</p>
+        </div>
+        <div class="how-panel-card">
+          <div class="how-panel-icon">🔍</div>
+          <h4>Pattern Matching</h4>
+          <p>Over 60 regex patterns scan the job title and description for known scam phrases — fee requests, copy-paste work, ad-posting, urgency tactics, and MLM language.</p>
+        </div>
+        <div class="how-panel-card">
+          <div class="how-panel-icon">📧</div>
+          <h4>Email Domain Check</h4>
+          <p>Legitimate companies always use a company-owned email. Personal domains like Gmail or Yahoo are flagged immediately as a strong red flag.</p>
+        </div>
+        <div class="how-panel-card">
+          <div class="how-panel-icon">💰</div>
+          <h4>Salary Sanity Check</h4>
+          <p>Salaries that are too high per day or suspiciously below minimum wage are flagged automatically using numeric parsing of the salary field.</p>
+        </div>
+        <div class="how-panel-card">
+          <div class="how-panel-icon">🔗</div>
+          <h4>URL Validation</h4>
+          <p>Shortened links (bit.ly, tinyurl) and suspicious TLDs (.xyz, .tk, .ml) commonly appear in phishing job posts and are flagged as high risk.</p>
+        </div>
+        <div class="how-panel-card">
+          <div class="how-panel-icon">📊</div>
+          <h4>Weighted Risk Score</h4>
+          <p>Each red flag carries a severity weight (5–30 points). Scores are summed and combined with the ML probability: <strong>Final = 60% rules + 40% ML</strong>, capped at 100.</p>
+        </div>
+        <div class="how-panel-card">
+          <div class="how-panel-icon">✅</div>
+          <h4>Positive Signals</h4>
+          <p>Mentions of PF/ESIC, CIN registration numbers, offer letters, structured interviews, background checks, and reputed portals reduce the overall risk score.</p>
+        </div>
+        <div class="how-panel-card">
+          <div class="how-panel-icon">🛡</div>
+          <h4>Safety Tips</h4>
+          <p>Based on which flags are triggered, context-aware safety tips are shown — from verifying the company on MCA to never sharing Aadhar/PAN before an offer letter.</p>
+        </div>
+      </div>
+
+      <!-- Score legend -->
+      <div class="how-legend">
+        <h4 class="how-legend-title">Risk Score Legend</h4>
+        <div class="how-legend-row">
+          <span class="legend-dot" style="background:var(--safe)"></span>
+          <span class="legend-range">0 – 25</span>
+          <span class="legend-label safe">✅ Likely Safe</span>
+          <span class="legend-desc">No significant red flags detected.</span>
+        </div>
+        <div class="how-legend-row">
+          <span class="legend-dot" style="background:var(--warn)"></span>
+          <span class="legend-range">26 – 55</span>
+          <span class="legend-label warn">⚠️ Suspicious</span>
+          <span class="legend-desc">Proceed with caution — verify independently.</span>
+        </div>
+        <div class="how-legend-row">
+          <span class="legend-dot" style="background:var(--danger)"></span>
+          <span class="legend-range">56 – 100</span>
+          <span class="legend-label danger">🚨 High Risk</span>
+          <span class="legend-desc">Multiple serious red flags — likely a scam.</span>
+        </div>
+      </div>
+
+      <p class="how-disclaimer">⚠️ JobGuard is a heuristic + ML tool built for educational purposes. Always independently verify job postings before making any career decisions.</p>
+
+    </div>
+  </aside>
+
+  <script>
+    function openHowPanel() {
+      document.getElementById('howDrawer').classList.add('open');
+      document.getElementById('howDrawer').setAttribute('aria-hidden', 'false');
+      document.getElementById('howBackdrop').classList.add('show');
+      document.body.classList.add('drawer-open');
+    }
+    function closeHowPanel() {
+      document.getElementById('howDrawer').classList.remove('open');
+      document.getElementById('howDrawer').setAttribute('aria-hidden', 'true');
+      document.getElementById('howBackdrop').classList.remove('show');
+      document.body.classList.remove('drawer-open');
+    }
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeHowPanel();
+    });
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

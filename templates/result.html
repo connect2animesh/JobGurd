@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}JobGuard — Result #{{ scan.id }}: {{ scan.title or 'Analysis' }}{% endblock %}
+
+{% block content %}
+<div class="result-page">
+
+  <div class="result-hero">
+    <div class="result-hero-inner">
+      <p class="result-label">Analysis Result · #{{ scan.id }} · {{ scan.created_at }}</p>
+      <h1 class="result-job-title">{{ scan.title or 'Untitled Job' }}</h1>
+      <p class="result-company">{{ scan.company or 'Unknown Company' }}</p>
+    </div>
+  </div>
+
+  <div class="result-body">
+
+    <!-- Score Card -->
+    <div class="result-score-card rcard">
+      <div class="score-ring-wrapper">
+        {% set score = scan.risk_score %}
+        {% set circ = 314 %}
+        {% set offset = circ - (score / 100 * circ) %}
+        {% if score <= 25 %}
+          {% set ring_color = '#22c55e' %}
+        {% elif score <= 55 %}
+          {% set ring_color = '#f59e0b' %}
+        {% else %}
+          {% set ring_color = '#ef4444' %}
+        {% endif %}
+        <svg class="score-ring" viewBox="0 0 120 120">
+          <circle class="ring-bg" cx="60" cy="60" r="50"/>
+          <circle class="ring-fill" cx="60" cy="60" r="50"
+            stroke-dasharray="{{ circ }}"
+            stroke-dashoffset="{{ offset }}"
+            transform="rotate(-90 60 60)"
+            style="stroke:{{ ring_color }}"/>
+        </svg>
+        <div class="score-center">
+          <span class="score-number" style="color:{{ ring_color }}">{{ score }}</span>
+          <span class="score-label">Risk Score</span>
+        </div>
+      </div>
+      <div class="score-meta">
+        <div class="verdict-badge {{ scan.verdict }}">{{ scan.verdict_text }}</div>
+        {% if scan.ml_label %}
+        <p class="ml-pill ml-{{ 'danger' if scan.ml_label == 'Fake' else 'safe' }}">
+          🤖 ML: {{ scan.ml_label }} · {{ scan.ml_confidence }}% confidence
+        </p>
+        {% endif %}
+        <div class="result-meta-row">
+          <span>🚩 {{ scan.flag_count }} red flags</span>
+          <span>✓ {{ scan.signal_count }} positive signals</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-grid">
+
+      <!-- Job Details -->
+      <div class="rcard">
+        <h3 class="rcard-title">📋 Job Details</h3>
+        <table class="details-table">
+          {% if scan.email %}<tr><td>Email</td><td>{{ scan.email }}</td></tr>{% endif %}
+          {% if scan.salary %}<tr><td>Salary</td><td>{{ scan.salary }}</td></tr>{% endif %}
+          {% if scan.url %}
+            <tr><td>URL</td><td><a href="{{ scan.url }}" target="_blank" rel="noopener" class="detail-link">{{ scan.url[:50] }}{% if scan.url|length > 50 %}…{% endif %}</a></td></tr>
+          {% endif %}
+        </table>
+        {% if scan.description %}
+        <div class="desc-preview">
+          <p class="desc-text">{{ scan.description[:400] }}{% if scan.description|length > 400 %}…{% endif %}</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Red Flags -->
+      <div class="rcard">
+        <h3 class="rcard-title">⚑ Red Flags ({{ scan.flags | length }})</h3>
+        {% if scan.flags %}
+          <ul class="flags-list">
+            {% for flag in scan.flags %}
+            <li class="flag-item">
+              <span class="flag-icon">⚑</span>
+              <span class="flag-text">{{ flag.text }}</span>
+              <span class="flag-tag tag-{{ flag.severity }}">{{ flag.severity }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="no-flags">No significant red flags detected.</p>
+        {% endif %}
+      </div>
+
+      <!-- Positive Signals -->
+      {% if scan.signals %}
+      <div class="rcard">
+        <h3 class="rcard-title">✓ Positive Signals ({{ scan.signals | length }})</h3>
+        <ul class="signals-list">
+          {% for sig in scan.signals %}
+          <li class="signal-item">{{ sig }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <!-- Category Breakdown -->
+      {% if scan.breakdown %}
+      <div class="rcard">
+        <h3 class="rcard-title">📊 Category Breakdown</h3>
+        <div class="breakdown-grid-static">
+          {% for item in scan.breakdown %}
+            {% if item.score >= 60 %}{% set bcolor = '#ef4444' %}
+            {% elif item.score >= 30 %}{% set bcolor = '#f59e0b' %}
+            {% else %}{% set bcolor = '#22c55e' %}{% endif %}
+          <div class="breakdown-item">
+            <div class="cat-label">{{ item.label }}</div>
+            <div class="cat-bar-track">
+              <div class="cat-bar-fill" style="width:{{ item.score }}%; background:{{ bcolor }}"></div>
+            </div>
+            <div class="cat-score" style="color:{{ bcolor }}">{{ item.score }}% risk</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Actions -->
+    <div class="result-actions">
+      <a href="{{ url_for('index') }}" class="btn-analyze" style="display:inline-flex;text-decoration:none;width:auto;padding:12px 28px">
+        ← Analyze Another Job
+      </a>
+      <button onclick="window.print()" class="btn-report">🖨 Print Report</button>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

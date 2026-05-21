@@ -1,0 +1,437 @@
+{% extends "base.html" %}
+
+{% block title %}JobGuard — Admin Dashboard{% endblock %}
+
+{% block head %}
+<style>
+/* ── Delete Modal ── */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.modal-backdrop.show { opacity: 1; pointer-events: all; }
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px 28px 24px;
+  max-width: 400px;
+  width: calc(100% - 40px);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  transform: scale(0.92) translateY(8px);
+  transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+.modal-backdrop.show .modal-box { transform: scale(1) translateY(0); }
+.modal-icon { font-size: 2rem; margin-bottom: 12px; }
+.modal-title { font-family:'Syne',sans-serif; font-size:1.05rem; font-weight:700; color:var(--text); margin-bottom:8px; }
+.modal-body  { font-size:0.85rem; color:var(--muted); line-height:1.6; margin-bottom:20px; }
+.modal-job-name {
+  display:inline-block; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2);
+  border-radius:4px; padding:2px 8px; color:var(--danger); font-weight:600; font-size:0.82rem; margin-top:4px;
+}
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; }
+.modal-cancel {
+  padding:9px 20px; background:transparent; border:1px solid var(--border);
+  border-radius:var(--radius-sm); color:var(--muted); font-family:'DM Sans',sans-serif;
+  font-size:0.88rem; cursor:pointer; transition:all 0.2s ease;
+}
+.modal-cancel:hover { border-color:var(--muted); color:var(--text); }
+.modal-confirm {
+  padding:9px 20px; background:var(--danger); border:none; border-radius:var(--radius-sm);
+  color:#fff; font-family:'Syne',sans-serif; font-size:0.88rem; font-weight:700; cursor:pointer;
+  transition:all 0.2s ease; box-shadow:0 4px 16px rgba(239,68,68,0.3);
+}
+.modal-confirm:hover { background:#dc2626; box-shadow:0 6px 20px rgba(239,68,68,0.45); }
+
+/* ── Admin Scan Drawer extras ── */
+.adrawer-meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:4px; }
+.adrawer-chip {
+  font-size:0.72rem; padding:3px 10px; border-radius:10px;
+  background:var(--surface2); border:1px solid var(--border); color:var(--muted);
+}
+.adrawer-detail-row { display:grid; grid-template-columns:80px 1fr; gap:4px 10px; font-size:0.82rem; }
+.adrawer-detail-row dt { color:var(--muted); font-size:0.7rem; text-transform:uppercase; letter-spacing:.4px; padding-top:2px; }
+.adrawer-detail-row dd { color:var(--text); word-break:break-word; }
+.adrawer-detail-row dd a { color:var(--accent); text-decoration:none; }
+.adrawer-desc {
+  background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm);
+  padding:10px 12px; font-size:0.79rem; color:var(--muted); line-height:1.6;
+  max-height:120px; overflow-y:auto;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="admin-page">
+
+  <div class="admin-header">
+    <h1 class="admin-title">Admin Dashboard</h1>
+    <p class="admin-sub">All analysed job postings stored in the database.</p>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">📊</div>
+      <div class="stat-num">{{ stats.total or 0 }}</div>
+      <div class="stat-label">Total Scans</div>
+    </div>
+    <div class="stat-card stat-danger">
+      <div class="stat-icon">🚨</div>
+      <div class="stat-num">{{ stats.fake_count or 0 }}</div>
+      <div class="stat-label">High Risk</div>
+    </div>
+    <div class="stat-card stat-warn">
+      <div class="stat-icon">⚠️</div>
+      <div class="stat-num">{{ stats.suspicious_count or 0 }}</div>
+      <div class="stat-label">Suspicious</div>
+    </div>
+    <div class="stat-card stat-safe">
+      <div class="stat-icon">✅</div>
+      <div class="stat-num">{{ stats.safe_count or 0 }}</div>
+      <div class="stat-label">Likely Safe</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📈</div>
+      <div class="stat-num">{{ stats.avg_score or '—' }}</div>
+      <div class="stat-label">Avg Risk Score</div>
+    </div>
+  </div>
+
+  <!-- Scans Table -->
+  <div class="admin-table-wrap">
+    {% if scans %}
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Job Title</th>
+          <th>Company</th>
+          <th>Score</th>
+          <th>Verdict</th>
+          <th>ML Prediction</th>
+          <th>Flags</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for scan in scans %}
+        <tr>
+          <td class="td-id">{{ scan.id }}</td>
+          <td class="td-title">{{ scan.title or '—' }}</td>
+          <td class="td-company">{{ scan.company or '—' }}</td>
+          <td class="td-score">
+            <span class="score-pill score-{{ scan.verdict }}">{{ scan.risk_score }}/100</span>
+          </td>
+          <td>
+            <span class="verdict-badge {{ scan.verdict }} vbadge-sm">
+              {% if scan.verdict == 'safe' %}✅ Safe
+              {% elif scan.verdict == 'suspicious' %}⚠️ Suspicious
+              {% else %}🚨 High Risk{% endif %}
+            </span>
+          </td>
+          <td class="td-ml">
+            {% if scan.ml_label %}
+              <span class="ml-tag ml-{{ 'danger' if scan.ml_label == 'Fake' else 'safe' }}">
+                {{ scan.ml_label }} · {{ scan.ml_confidence }}%
+              </span>
+            {% else %}
+              <span class="ml-tag ml-na">—</span>
+            {% endif %}
+          </td>
+          <td class="td-flags">{{ scan.flag_count }}</td>
+          <td class="td-date">{{ scan.created_at }}</td>
+          <td class="td-actions">
+            <button class="act-view" onclick="viewScan({{ scan.id }})">View</button>
+            <button class="act-delete"
+              onclick="confirmDelete({{ scan.id }}, '{{ (scan.title or 'Untitled Job') | replace("'", "\\'") }}')">
+              Delete
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="admin-empty">
+      <div style="font-size:3rem;margin-bottom:12px">📭</div>
+      <h3>No scans yet</h3>
+      <p>Analyse a job posting on the <a href="{{ url_for('index') }}">home page</a> to see results here.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- Scan IDs only — full data is fetched on demand via /api/scan/<id> -->
+
+<!-- ── Scan Side Drawer ── -->
+<div class="drawer-backdrop" id="adminDrawerBackdrop" onclick="closeAdminDrawer()"></div>
+<aside class="result-drawer" id="adminDrawer" aria-hidden="true">
+
+  <div class="drawer-header">
+    <div class="drawer-heading">
+      <span class="drawer-icon">🛡</span>
+      <div>
+        <h2 class="drawer-title" id="adTitle">Scan Details</h2>
+        <p class="drawer-sub"  id="adSub"></p>
+      </div>
+    </div>
+    <div class="drawer-top-actions">
+      <a class="drawer-fullpage-btn" id="adFullLink" href="#" target="_blank">↗ Full Page</a>
+      <button class="drawer-close" onclick="closeAdminDrawer()">✕</button>
+    </div>
+  </div>
+
+  <div class="drawer-body">
+
+    <!-- Score + verdict -->
+    <div class="drawer-score-row">
+      <div class="score-ring-wrapper drawer-ring">
+        <svg class="score-ring" viewBox="0 0 120 120">
+          <circle class="ring-bg" cx="60" cy="60" r="50"/>
+          <circle class="ring-fill" id="adRingFill" cx="60" cy="60" r="50"
+            stroke-dasharray="314" stroke-dashoffset="314"
+            transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="score-center">
+          <span class="score-number" id="adScoreNum">—</span>
+          <span class="score-label">Risk</span>
+        </div>
+      </div>
+      <div class="drawer-verdict-block">
+        <div class="verdict-badge" id="adVerdict">—</div>
+        <div id="adMlPill" style="margin-top:8px"></div>
+        <div class="adrawer-meta" id="adMeta" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <!-- Job details -->
+    <div class="drawer-section" id="adDetailsSection">
+      <h3 class="drawer-section-title">📋 Job Details</h3>
+      <dl class="adrawer-detail-row" id="adDetailList"></dl>
+      <div class="adrawer-desc" id="adDesc" style="margin-top:10px;display:none"></div>
+    </div>
+
+    <!-- Red Flags -->
+    <div class="drawer-section">
+      <h3 class="drawer-section-title">⚑ Red Flags</h3>
+      <ul class="flags-list" id="adFlagsList"></ul>
+      <p class="no-flags" id="adNoFlags" style="display:none">No significant red flags found.</p>
+    </div>
+
+    <!-- Positive Signals -->
+    <div class="drawer-section" id="adSignalsSec" style="display:none">
+      <h3 class="drawer-section-title">✓ Positive Signals</h3>
+      <ul class="signals-list" id="adSignalsList"></ul>
+    </div>
+
+    <!-- Breakdown -->
+    <div class="drawer-section">
+      <h3 class="drawer-section-title">📊 Category Breakdown</h3>
+      <div id="adBreakdown"></div>
+    </div>
+
+  </div>
+</aside>
+
+<!-- ── Delete Confirmation Modal ── -->
+<div class="modal-backdrop" id="deleteModal" onclick="closeDeleteModal(event)">
+  <div class="modal-box">
+    <div class="modal-icon">🗑️</div>
+    <h3 class="modal-title">Delete this scan?</h3>
+    <div class="modal-body">
+      This action cannot be undone. The following scan record will be permanently removed:
+      <div><span class="modal-job-name" id="modalJobName"></span></div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeDeleteModal()">Cancel</button>
+      <button class="modal-confirm" id="modalConfirmBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<form id="deleteForm" method="POST" style="display:none"></form>
+
+<script>
+/* ── Scan Drawer ─────────────────────────────────────────────── */
+async function viewScan(id) {
+  // Show drawer immediately with loading state
+  document.getElementById('adTitle').textContent = 'Loading…';
+  document.getElementById('adSub').textContent   = '';
+  document.getElementById('adScoreNum').textContent = '—';
+  document.getElementById('adRingFill').style.strokeDashoffset = '314';
+  document.getElementById('adminDrawer').classList.add('open');
+  document.getElementById('adminDrawer').setAttribute('aria-hidden', 'false');
+  document.getElementById('adminDrawerBackdrop').classList.add('show');
+  document.body.style.overflow = 'hidden';
+
+  let s;
+  try {
+    const resp = await fetch('/api/scan/' + id);
+    if (!resp.ok) throw new Error('Not found');
+    s = await resp.json();
+  } catch (e) {
+    document.getElementById('adTitle').textContent = 'Error loading scan.';
+    return;
+  }
+
+  // Header
+  document.getElementById('adTitle').textContent = s.title || 'Untitled Job';
+  document.getElementById('adSub').textContent   = s.company || '';
+  document.getElementById('adFullLink').href      = '/result/' + id;
+
+  // Score ring
+  const score  = s.risk_score;
+  const offset = 314 - (score / 100) * 314;
+  const color  = score <= 25 ? '#22c55e' : score <= 55 ? '#f59e0b' : '#ef4444';
+  const ring   = document.getElementById('adRingFill');
+  ring.style.stroke = color;
+  document.getElementById('adScoreNum').textContent = score;
+  setTimeout(() => { ring.style.strokeDashoffset = offset; }, 30);
+
+  // Verdict
+  const vEl = document.getElementById('adVerdict');
+  vEl.textContent = s.verdict_text || s.verdict;
+  vEl.className   = 'verdict-badge ' + (s.verdict || '');
+
+  // ML pill
+  const mlEl = document.getElementById('adMlPill');
+  if (s.ml_label) {
+    const cls = s.ml_label === 'Fake' ? 'ml-danger' : 'ml-safe';
+    mlEl.innerHTML = `<span class="ml-pill ${cls}">🤖 ML: ${s.ml_label} · ${s.ml_confidence}% confidence</span>`;
+  } else {
+    mlEl.innerHTML = '';
+  }
+
+  // Meta chips
+  const metaEl = document.getElementById('adMeta');
+  metaEl.innerHTML = `
+    <span class="adrawer-chip">🚩 ${s.flag_count} flags</span>
+    <span class="adrawer-chip">✓ ${s.signal_count} signals</span>
+    <span class="adrawer-chip">🕑 ${s.created_at || ''}</span>
+  `;
+
+  // Job details
+  const dl = document.getElementById('adDetailList');
+  dl.innerHTML = '';
+  const fields = [
+    ['Email',  s.email],
+    ['Salary', s.salary],
+    ['URL',    s.url ? `<a href="${s.url}" target="_blank">${s.url.slice(0, 45)}${s.url.length > 45 ? '…' : ''}</a>` : null],
+  ];
+  fields.forEach(([label, val]) => {
+    if (!val) return;
+    dl.innerHTML += `<dt>${label}</dt><dd>${val}</dd>`;
+  });
+
+  // Description
+  const descEl = document.getElementById('adDesc');
+  if (s.description) {
+    descEl.textContent = s.description.slice(0, 500) + (s.description.length > 500 ? '…' : '');
+    descEl.style.display = 'block';
+  } else {
+    descEl.style.display = 'none';
+  }
+
+  // Red flags
+  const flagsList = document.getElementById('adFlagsList');
+  const noFlags   = document.getElementById('adNoFlags');
+  flagsList.innerHTML = '';
+  const flags = Array.isArray(s.flags) ? s.flags : [];
+  if (flags.length === 0) {
+    noFlags.style.display = 'block';
+  } else {
+    noFlags.style.display = 'none';
+    flags.forEach((flag, i) => {
+      const li = document.createElement('li');
+      li.className = 'flag-item';
+      li.style.animationDelay = `${i * 0.05}s`;
+      const tagCls = flag.severity === 'high' ? 'tag-high' : flag.severity === 'medium' ? 'tag-medium' : 'tag-low';
+      li.innerHTML = `<span class="flag-icon">⚑</span><span class="flag-text">${flag.text}</span><span class="flag-tag ${tagCls}">${flag.severity}</span>`;
+      flagsList.appendChild(li);
+    });
+  }
+
+  // Signals
+  const sigSec  = document.getElementById('adSignalsSec');
+  const sigList = document.getElementById('adSignalsList');
+  sigList.innerHTML = '';
+  const signals = Array.isArray(s.signals) ? s.signals : [];
+  if (signals.length === 0) {
+    sigSec.style.display = 'none';
+  } else {
+    sigSec.style.display = 'block';
+    signals.forEach(sig => {
+      const li = document.createElement('li');
+      li.className = 'signal-item';
+      li.textContent = sig;
+      sigList.appendChild(li);
+    });
+  }
+
+  // Breakdown
+  const bdEl = document.getElementById('adBreakdown');
+  bdEl.innerHTML = '';
+  const breakdown = Array.isArray(s.breakdown) ? s.breakdown : [];
+  breakdown.forEach(item => {
+    const barColor = item.score >= 60 ? '#ef4444' : item.score >= 30 ? '#f59e0b' : '#22c55e';
+    const div = document.createElement('div');
+    div.className = 'breakdown-item';
+    div.innerHTML = `
+      <div class="cat-label">${item.label}</div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:0%;background:${barColor}"></div></div>
+      <div class="cat-score" style="color:${barColor}">${item.score}% risk</div>
+    `;
+    bdEl.appendChild(div);
+    setTimeout(() => { div.querySelector('.cat-bar-fill').style.width = item.score + '%'; }, 80);
+  });
+
+}
+
+function closeAdminDrawer() {
+  document.getElementById('adminDrawer').classList.remove('open');
+  document.getElementById('adminDrawer').setAttribute('aria-hidden', 'true');
+  document.getElementById('adminDrawerBackdrop').classList.remove('show');
+  document.body.style.overflow = '';
+
+  // Reset ring so animation replays next time
+  document.getElementById('adRingFill').style.strokeDashoffset = '314';
+}
+
+/* ── Delete Modal ────────────────────────────────────────────── */
+function confirmDelete(scanId, jobTitle) {
+  document.getElementById('modalJobName').textContent = jobTitle;
+  document.getElementById('modalConfirmBtn').onclick = function () {
+    const form = document.getElementById('deleteForm');
+    form.action = '/admin/delete/' + scanId;
+    form.submit();
+  };
+  document.getElementById('deleteModal').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDeleteModal(e) {
+  if (e && e.target !== document.getElementById('deleteModal')) return;
+  document.getElementById('deleteModal').classList.remove('show');
+  if (!document.getElementById('adminDrawer').classList.contains('open')) {
+    document.body.style.overflow = '';
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('deleteModal').classList.contains('show')) {
+    closeDeleteModal();
+  } else {
+    closeAdminDrawer();
+  }
+});
+</script>
+{% endblock %}

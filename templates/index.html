@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+
+{% block title %}JobGuard — Analyze a Job Posting{% endblock %}
+
+{% block content %}
+<main class="main">
+
+  <!-- LEFT: INPUT PANEL -->
+  <section class="panel input-panel">
+    <h2 class="panel-title">Paste Job Details</h2>
+    <p class="panel-sub">Fill in what you know — even partial info helps.</p>
+
+    <!-- SAMPLE PRESETS -->
+    <div class="presets-row">
+      <span class="presets-label">Try a demo:</span>
+      <button class="preset-btn preset-fake"       onclick="loadPreset('fake')">🚨 Fake Job</button>
+      <button class="preset-btn preset-suspicious"  onclick="loadPreset('suspicious')">⚠️ Suspicious</button>
+      <button class="preset-btn preset-legit"      onclick="loadPreset('legit')">✅ Legit Post</button>
+    </div>
+
+    <div class="form-group">
+      <label for="jobTitle">Job / Internship Title</label>
+      <input type="text" id="jobTitle" placeholder="e.g. Marketing Intern, Data Entry Operator" />
+    </div>
+
+    <div class="form-group">
+      <label for="companyName">Company Name</label>
+      <input type="text" id="companyName" placeholder="e.g. TechCorp India Pvt. Ltd." />
+    </div>
+
+    <div class="form-group">
+      <label for="contactEmail">Contact / HR Email</label>
+      <input type="email" id="contactEmail" placeholder="e.g. hr@company.com" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group half">
+        <label for="salary">Offered Salary / Stipend</label>
+        <input type="text" id="salary" placeholder="e.g. ₹50,000/month or 5 LPA" />
+      </div>
+      <div class="form-group half">
+        <label for="jobUrl">Job Posting URL</label>
+        <input type="text" id="jobUrl" placeholder="https://..." />
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="jobDesc">Full Job Description</label>
+      <textarea id="jobDesc" rows="7" placeholder="Paste the complete job description here. Include requirements, responsibilities, perks, how to apply, etc."></textarea>
+      <span class="char-count" id="charCount">0 characters</span>
+    </div>
+
+    <!-- ML Badge -->
+    {% if ml_available %}
+    <div class="ml-badge">
+      <span class="ml-dot"></span> ML model active — results enhanced with AI prediction
+    </div>
+    {% else %}
+    <div class="ml-badge ml-badge-off">
+      ⚠️ ML model not loaded — rule-based analysis only
+    </div>
+    {% endif %}
+
+    <button class="btn-analyze" id="analyzeBtn" onclick="analyzeJob()">
+      <span class="btn-icon">🔍</span> Analyze Now
+    </button>
+
+    <button class="btn-clear" onclick="clearAll()">Clear</button>
+  </section>
+
+  <!-- RIGHT: RESULTS PANEL -->
+  <section class="panel results-panel" id="resultsPanel">
+
+    <!-- IDLE STATE -->
+    <div class="idle-state" id="idleState">
+      <div class="idle-icon">🔎</div>
+      <h3>Your analysis will appear here</h3>
+      <p>Fill in the job details on the left and click <strong>Analyze Now</strong>.</p>
+    </div>
+
+    <!-- RESULTS STATE -->
+    <div class="results-content" id="resultsContent" style="display:none">
+
+      <!-- Score Ring -->
+      <div class="score-section">
+        <div class="score-ring-wrapper">
+          <svg class="score-ring" viewBox="0 0 120 120">
+            <circle class="ring-bg" cx="60" cy="60" r="50"/>
+            <circle class="ring-fill" id="ringFill" cx="60" cy="60" r="50"
+              stroke-dasharray="314" stroke-dashoffset="314"
+              transform="rotate(-90 60 60)"/>
+          </svg>
+          <div class="score-center">
+            <span class="score-number" id="scoreNumber">0</span>
+            <span class="score-label">Risk Score</span>
+          </div>
+        </div>
+        <div class="score-meta">
+          <div class="verdict-badge" id="verdictBadge">—</div>
+          <p class="verdict-desc" id="verdictDesc">Run an analysis to get results.</p>
+          <!-- ML result inline -->
+          <div class="ml-result" id="mlResult" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Red Flags -->
+      <div class="flags-section" id="flagsSection">
+        <h3 class="section-heading">⚑ Red Flags Detected</h3>
+        <ul class="flags-list" id="flagsList"></ul>
+        <p class="no-flags" id="noFlags" style="display:none">No significant red flags found. Looks relatively safe!</p>
+      </div>
+
+      <!-- Positive Signals -->
+      <div class="signals-section" id="signalsSection">
+        <h3 class="section-heading">✓ Positive Signals</h3>
+        <ul class="signals-list" id="signalsList"></ul>
+      </div>
+
+      <!-- Breakdown -->
+      <div class="breakdown-section">
+        <h3 class="section-heading">📊 Category Breakdown</h3>
+        <div class="breakdown-grid" id="breakdownGrid"></div>
+      </div>
+
+      <!-- Safety Tips -->
+      <div class="tips-section">
+        <h3 class="section-heading">💡 Safety Tips</h3>
+        <ul class="tips-list" id="tipsList"></ul>
+      </div>
+
+      <!-- Actions -->
+      <div class="actions-row">
+        <button class="btn-report" onclick="downloadReport()">⬇ Download Report</button>
+        <button class="btn-share"  onclick="copyReport()">📋 Copy Summary</button>
+        <button class="btn-permalink" id="permalinkBtn" onclick="openDrawer()" style="display:none">🔗 Full Report</button>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- SCAN HISTORY -->
+<section class="history-section" id="historySection" style="display:none">
+  <div class="history-inner">
+    <div class="history-header">
+      <h3 class="history-title">🕑 Recent Scans</h3>
+      <button class="btn-clear-history" onclick="clearHistory()">Clear All</button>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+</section>
+
+{% endblock %}
+
+<!-- RESULT SIDE DRAWER -->
+<div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
+<aside class="result-drawer" id="resultDrawer" aria-hidden="true">
+  <div class="drawer-header">
+    <div class="drawer-heading">
+      <span class="drawer-icon">🛡</span>
+      <div>
+        <h2 class="drawer-title" id="drawerTitle">Analysis Report</h2>
+        <p class="drawer-sub" id="drawerSub"></p>
+      </div>
+    </div>
+    <div class="drawer-top-actions">
+      <a class="drawer-fullpage-btn" id="drawerFullLink" href="#" target="_blank">↗ Full Page</a>
+      <button class="drawer-close" onclick="closeDrawer()" aria-label="Close">✕</button>
+    </div>
+  </div>
+
+  <div class="drawer-body">
+
+    <!-- Score -->
+    <div class="drawer-score-row">
+      <div class="score-ring-wrapper drawer-ring">
+        <svg class="score-ring" viewBox="0 0 120 120">
+          <circle class="ring-bg" cx="60" cy="60" r="50"/>
+          <circle class="ring-fill" id="drawerRingFill" cx="60" cy="60" r="50"
+            stroke-dasharray="314" stroke-dashoffset="314"
+            transform="rotate(-90 60 60)"/>
+        </svg>
+        <div class="score-center">
+          <span class="score-number" id="drawerScoreNum">0</span>
+          <span class="score-label">Risk</span>
+        </div>
+      </div>
+      <div class="drawer-verdict-block">
+        <div class="verdict-badge" id="drawerVerdict">—</div>
+        <p class="verdict-desc" id="drawerVerdictDesc"></p>
+        <div id="drawerMlPill" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- Red Flags -->
+    <div class="drawer-section">
+      <h3 class="drawer-section-title">⚑ Red Flags</h3>
+      <ul class="flags-list" id="drawerFlagsList"></ul>
+      <p class="no-flags" id="drawerNoFlags" style="display:none">No significant red flags found.</p>
+    </div>
+
+    <!-- Positive Signals -->
+    <div class="drawer-section" id="drawerSignalsSection">
+      <h3 class="drawer-section-title">✓ Positive Signals</h3>
+      <ul class="signals-list" id="drawerSignalsList"></ul>
+    </div>
+
+    <!-- Breakdown -->
+    <div class="drawer-section">
+      <h3 class="drawer-section-title">📊 Category Breakdown</h3>
+      <div id="drawerBreakdown"></div>
+    </div>
+
+    <!-- Safety Tips -->
+    <div class="drawer-section">
+      <h3 class="drawer-section-title">💡 Safety Tips</h3>
+      <ul class="tips-list" id="drawerTips"></ul>
+    </div>
+
+    <!-- Download / Copy -->
+    <div class="actions-row" style="margin-top:8px">
+      <button class="btn-report" onclick="downloadReport()">⬇ Download</button>
+      <button class="btn-share"  onclick="copyReport()">📋 Copy</button>
+    </div>
+
+  </div>
+</aside>
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}JobGuard — Not Found{% endblock %}
+{% block content %}
+<div style="text-align:center;padding:80px 20px;color:var(--muted)">
+  <div style="font-size:4rem;margin-bottom:16px">🔍</div>
+  <h2 style="font-family:'Syne',sans-serif;color:var(--text);margin-bottom:8px">Page Not Found</h2>
+  <p>The scan or page you're looking for doesn't exist.</p>
+  <a href="{{ url_for('index') }}" style="display:inline-block;margin-top:20px;color:var(--accent)">← Back to JobGuard</a>
+</div>
+{% endblock %}
